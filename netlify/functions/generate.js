@@ -6,21 +6,35 @@ exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 4000,
         messages: body.messages,
+        temperature: 0.8,
+        response_format: { type: "json_object" },
       }),
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Groq API error");
+    }
+
+    const normalized = {
+      content: [
+        {
+          type: "text",
+          text: data.choices?.[0]?.message?.content || "",
+        },
+      ],
+    };
 
     return {
       statusCode: 200,
@@ -28,7 +42,7 @@ exports.handler = async function (event) {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(normalized),
     };
   } catch (err) {
     return {
